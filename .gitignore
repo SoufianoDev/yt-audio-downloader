@@ -25,3 +25,4 @@ test/
 !test/.gitkeep
 test/w64devkit/
 
+init_project
