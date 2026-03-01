@@ -37,13 +37,26 @@ jobs:
           echo "Build failed."
         fi
 
+    - name: Test Download (macOS)
+      run: |
+        mkdir -p test
+        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav
+        if [ $? -eq 0 ] && [ -f "test/mac_test.wav" ]; then
+          echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
+          echo "Download successful."
+        else
+          echo "DOWNLOAD_RESULT=FAILURE" >> $GITHUB_ENV
+          echo "Download failed."
+        fi
+
     - name: Generate Final Log
       run: |
         echo "==============================" > final.log
-        echo "MACOS BUILD LOG" >> final.log
+        echo "MACOS BUILD & TEST LOG" >> final.log
         echo "==============================" >> final.log
         cat build.log >> final.log
         echo "" >> final.log
+        echo "TEST DOWNLOAD STATUS: ${{ env.DOWNLOAD_RESULT }}" >> final.log
         echo "==============================" >> final.log
         echo "FINAL STATEMENT: ${{ env.RESULT }}" >> final.log
         echo "==============================" >> final.log
@@ -51,11 +64,11 @@ jobs:
     - name: Upload Build Log
       uses: actions/upload-artifact@v4
       with:
-        name: macos-build-log
+        name: macos-build-and-test-log
         path: final.log
 
     - name: Check Status
       run: |
-        if [ "${{ env.RESULT }}" == "FAILURE" ]; then
+        if [ "${{ env.RESULT }}" == "FAILURE" ] || [ "${{ env.DOWNLOAD_RESULT }}" == "FAILURE" ]; then
           exit 1
         fi
