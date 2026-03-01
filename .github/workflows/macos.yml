@@ -60,7 +60,7 @@ jobs:
         export PYTHONPATH=$(python -c "import site; print(site.getsitepackages()[0])")
         echo "PYTHONPATH=$PYTHONPATH"
         
-        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav > download.log 2>&1 || true
+        ./releases/yt-audio "https://www.youtube.com/watch?v=BaW_jenozKc" -o test/mac_test.wav > download.log 2>&1 || true
         cat download.log
         
         if [ -f "test/mac_test.wav" ]; then
