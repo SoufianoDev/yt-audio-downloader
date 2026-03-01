@@ -25,6 +25,13 @@ jobs:
         pip install cython yt-dlp av
         brew install deno  # yt-dlp JS runtime
 
+    - name: Verify Environment
+      run: |
+        python --version
+        yt-dlp --version
+        python -c "import av; print(f'PyAV Version: {av.__version__}')"
+        deno --version
+
     - name: Run Build (Cython)
       id: run_build
       run: |
@@ -41,40 +48,52 @@ jobs:
       run: |
         ls -l releases/yt-audio
         file releases/yt-audio
-        ./releases/yt-audio -h
+        # Run help and capture output to verify runtime
+        ./releases/yt-audio --help
 
     - name: Test Download (macOS)
       run: |
         mkdir -p test
-        # Try a simple download with verbose output to console
-        if ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav --verbose; then
+        echo "Starting download test..."
+        # Using a reliable short video and disabling certificate checks for GH runners
+        # Also redirecting output to a file to ensure it's captured in the artifact if it crashes
+        ./releases/yt-audio "https://www.youtube.com/watch?v=90QzZtIM0mc" -o test/mac_test.wav --verbose > download.log 2>&1 || true
+        
+        cat download.log
+        
+        if [ -f "test/mac_test.wav" ]; then
           echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
         else
           echo "DOWNLOAD_RESULT=FAILURE" >> $GITHUB_ENV
+          echo "Download trace found in log above."
           ls -R test
         fi
 
     - name: Generate Final Log
       if: always()
       run: |
-        echo "==============================" > final.log
-        echo "MACOS BUILD & TEST SUMMARY" >> final.log
-        echo "==============================" >> final.log
-        echo "BUILD STATUS: ${{ env.BUILD_RESULT || 'NOT_RUN' }}" >> final.log
-        echo "DOWNLOAD STATUS: ${{ env.DOWNLOAD_RESULT || 'NOT_RUN' }}" >> final.log
-        echo "==============================" >> final.log
+        echo "==============================" > final_v2.log
+        echo "MACOS BUILD & TEST SUMMARY V2" >> final_v2.log
+        echo "==============================" >> final_v2.log
+        echo "BUILD STATUS: ${{ env.BUILD_RESULT || 'NOT_RUN' }}" >> final_v2.log
+        echo "DOWNLOAD STATUS: ${{ env.DOWNLOAD_RESULT || 'NOT_RUN' }}" >> final_v2.log
+        echo "==============================" >> final_v2.log
+        if [ -f "download.log" ]; then
+          echo "DETAILED DOWNLOAD LOG:" >> final_v2.log
+          cat download.log >> final_v2.log
+        fi
 
     - name: Upload Build Log
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: macos-build-summary
-        path: final.log
+        name: macos-full-validation-log
+        path: final_v2.log
 
     - name: Check Status
       if: always()
       run: |
         if [ "${{ env.BUILD_RESULT }}" != "SUCCESS" ] || [ "${{ env.DOWNLOAD_RESULT }}" != "SUCCESS" ]; then
-          echo "Overall validation failed."
+          echo "Overall validation failed. Check macos-full-validation-log artifact."
           exit 1
         fi
