@@ -49,24 +49,32 @@ jobs:
         ./releases/yt-audio --help
 
     - name: Test Download (via Python source)
-      # Run via Python directly to avoid binary embedding/path issues.
-      # This tests the full app logic: yt-dlp + PyAV + argument parsing.
+      # Tests the full app logic: yt-dlp + PyAV + argument parsing.
       run: |
         mkdir -p test
-        if python3 src/main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o test/mac_test.wav; then
-          echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
-        else
-          echo "DOWNLOAD_RESULT=FAILURE" >> $GITHUB_ENV
-          exit 1
-        fi
+        python3 src/main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o test/mac_test.wav
+        echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
+
+    - name: Test Compiled Binary (macOS)
+      # Point the binary's setup_environment() to the runner's site-packages
+      # by creating a 'venv' symlink that matches the expected directory structure.
+      run: |
+        PYTHON_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
+        echo "Linking venv -> $PYTHON_PREFIX"
+        ln -sf "$PYTHON_PREFIX" venv
+        
+        ./releases/yt-audio "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o test/mac_test_binary.wav
+        echo "BINARY_RESULT=SUCCESS" >> $GITHUB_ENV
 
     - name: Upload Audio Output
       if: success()
       uses: actions/upload-artifact@v4
       with:
         name: macos-audio-output
-        path: test/mac_test.wav
-        if-no-files-found: error
+        path: |
+          test/mac_test.wav
+          test/mac_test_binary.wav
+        if-no-files-found: warn
 
     - name: Generate Final Log
       if: always()
@@ -74,8 +82,9 @@ jobs:
         echo "==============================" > final.log
         echo "MACOS BUILD & TEST SUMMARY" >> final.log
         echo "==============================" >> final.log
-        echo "BUILD STATUS: ${BUILD_RESULT:-NOT_RUN}" >> final.log
+        echo "BUILD STATUS:    ${BUILD_RESULT:-NOT_RUN}" >> final.log
         echo "DOWNLOAD STATUS: ${DOWNLOAD_RESULT:-NOT_RUN}" >> final.log
+        echo "BINARY STATUS:   ${BINARY_RESULT:-NOT_RUN}" >> final.log
         echo "==============================" >> final.log
 
     - name: Upload Build Log
