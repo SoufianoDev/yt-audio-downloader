@@ -64,14 +64,17 @@ build() {
     local py_cfg="python${py_ver}-config"
     command -v "$py_cfg" >/dev/null 2>&1 || py_cfg="python3-config"
     
+    local compiler="gcc"
+    [[ "$OSTYPE" == "darwin"* ]] && compiler="cc"
+
     if command -v "$py_cfg" >/dev/null 2>&1; then
         local cflags=$($py_cfg --cflags)
         local ldflags=$($py_cfg --ldflags)
-        gcc "$BUILD_DIR/main.c" $cflags $ldflags -lpython$py_ver -o "$BUILD_DIR/$BIN_NAME"
+        $compiler "$BUILD_DIR/main.c" $cflags $ldflags -lpython$py_ver -o "$BUILD_DIR/$BIN_NAME"
     else
         # Fallback to manual flags if config tool is missing
-        log "Warning: $py_cfg not found, attempting manual compilation..."
-        gcc "$BUILD_DIR/main.c" $(pkg-config --cflags --libs python3 || echo "") -o "$BUILD_DIR/$BIN_NAME"
+        log "Warning: $py_cfg not found, attempting manual compilation with pkg-config..."
+        $compiler "$BUILD_DIR/main.c" $(pkg-config --cflags --libs python3 || echo "") -o "$BUILD_DIR/$BIN_NAME"
     fi
     
     cp "$BUILD_DIR/$BIN_NAME" "$DIST_DIR/"

@@ -26,9 +26,16 @@ jobs:
         brew install deno  # yt-dlp JS runtime
 
     - name: Run Build (Cython)
+      id: run_build
       run: |
+        rm -rf build releases
         chmod +x py2c
-        ./py2c build
+        if ./py2c build; then
+          echo "BUILD_RESULT=SUCCESS" >> $GITHUB_ENV
+        else
+          echo "BUILD_RESULT=FAILURE" >> $GITHUB_ENV
+          exit 1
+        fi
 
     - name: Verify Binary
       run: |
@@ -39,16 +46,11 @@ jobs:
     - name: Test Download (macOS)
       run: |
         mkdir -p test
-        # Try a simple download with more verbose output
-        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav --verbose || true
-        
-        if [ -f "test/mac_test.wav" ]; then
+        # Try a simple download with verbose output to console
+        if ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav --verbose; then
           echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
-          echo "Download successful."
         else
           echo "DOWNLOAD_RESULT=FAILURE" >> $GITHUB_ENV
-          echo "Download failed."
-          # Print diagnostic info
           ls -R test
         fi
 
@@ -56,21 +58,23 @@ jobs:
       if: always()
       run: |
         echo "==============================" > final.log
-        echo "MACOS BUILD & TEST LOG" >> final.log
+        echo "MACOS BUILD & TEST SUMMARY" >> final.log
         echo "==============================" >> final.log
-        # We don't have build.log anymore since we didn't redirect, 
-        # but the standard GH Action logs will have it.
-        echo "TEST DOWNLOAD STATUS: ${{ env.DOWNLOAD_RESULT }}" >> final.log
+        echo "BUILD STATUS: ${{ env.BUILD_RESULT || 'NOT_RUN' }}" >> final.log
+        echo "DOWNLOAD STATUS: ${{ env.DOWNLOAD_RESULT || 'NOT_RUN' }}" >> final.log
         echo "==============================" >> final.log
 
     - name: Upload Build Log
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: macos-build-and-test-log
+        name: macos-build-summary
         path: final.log
 
     - name: Check Status
+      if: always()
       run: |
-        if [ "${{ env.RESULT }}" == "FAILURE" ] || [ "${{ env.DOWNLOAD_RESULT }}" == "FAILURE" ]; then
+        if [ "${{ env.BUILD_RESULT }}" != "SUCCESS" ] || [ "${{ env.DOWNLOAD_RESULT }}" != "SUCCESS" ]; then
+          echo "Overall validation failed."
           exit 1
         fi
