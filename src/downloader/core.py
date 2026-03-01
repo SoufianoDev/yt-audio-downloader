@@ -70,20 +70,11 @@ class YouTubeAudioDownloader:
                 bar_len = 40
                 filled = int(bar_len * percent)
                 bar = '█' * filled + '-' * (bar_len - filled)
-                line = f'Progress: |{bar}| {percent:.1%}'
-                if sys.stderr.isatty():
-                    # Real terminal: carriage return overwrites in-place
-                    sys.stderr.write(f'\r{line}  ')
-                    sys.stderr.flush()
-                else:
-                    # Non-TTY (CI, pipes): print each update on its own line but
-                    # suppress duplicates by only printing at 10% increments
-                    if not hasattr(self, '_last_pct') or int(percent * 10) != self._last_pct:
-                        self._last_pct = int(percent * 10)
-                        sys.stderr.write(f'{line}\n')
-                        sys.stderr.flush()
+                sys.stderr.write(f'\rProgress: |{bar}| {percent:.1%}  ')
+                sys.stderr.flush()
         elif d['status'] == 'finished':
             sys.stderr.write('\nProcessing...\n')
+            sys.stderr.flush()
 
     def download(self):
         try:
