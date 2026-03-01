@@ -1,0 +1,61 @@
+name: macOS Build Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install cython yt-dlp av
+
+    - name: Run Build (Cython)
+      id: build_step
+      run: |
+        chmod +x py2c
+        ./py2c build > build.log 2>&1
+        if [ $? -eq 0 ]; then
+          echo "RESULT=SUCCESS" >> $GITHUB_ENV
+          echo "Build successful."
+        else
+          echo "RESULT=FAILURE" >> $GITHUB_ENV
+          echo "Build failed."
+        fi
+
+    - name: Generate Final Log
+      run: |
+        echo "==============================" > final.log
+        echo "MACOS BUILD LOG" >> final.log
+        echo "==============================" >> final.log
+        cat build.log >> final.log
+        echo "" >> final.log
+        echo "==============================" >> final.log
+        echo "FINAL STATEMENT: ${{ env.RESULT }}" >> final.log
+        echo "==============================" >> final.log
+
+    - name: Upload Build Log
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-build-log
+        path: final.log
+
+    - name: Check Status
+      run: |
+        if [ "${{ env.RESULT }}" == "FAILURE" ]; then
+          exit 1
+        fi
