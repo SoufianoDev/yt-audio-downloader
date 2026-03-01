@@ -63,7 +63,7 @@ jobs:
         echo "Linking venv -> $PYTHON_PREFIX"
         ln -sf "$PYTHON_PREFIX" venv
         
-        ./releases/yt-audio "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o test/mac_test_binary.wav
+        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test_binary.wav
         echo "BINARY_RESULT=SUCCESS" >> $GITHUB_ENV
 
     - name: Upload Audio Output
