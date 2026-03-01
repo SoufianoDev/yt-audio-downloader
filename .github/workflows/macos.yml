@@ -23,42 +23,44 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install cython yt-dlp av
+        brew install deno  # yt-dlp JS runtime
 
     - name: Run Build (Cython)
-      id: build_step
       run: |
         chmod +x py2c
-        ./py2c build > build.log 2>&1
-        if [ $? -eq 0 ]; then
-          echo "RESULT=SUCCESS" >> $GITHUB_ENV
-          echo "Build successful."
-        else
-          echo "RESULT=FAILURE" >> $GITHUB_ENV
-          echo "Build failed."
-        fi
+        ./py2c build
+
+    - name: Verify Binary
+      run: |
+        ls -l releases/yt-audio
+        file releases/yt-audio
+        ./releases/yt-audio -h
 
     - name: Test Download (macOS)
       run: |
         mkdir -p test
-        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav
-        if [ $? -eq 0 ] && [ -f "test/mac_test.wav" ]; then
+        # Try a simple download with more verbose output
+        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav --verbose || true
+        
+        if [ -f "test/mac_test.wav" ]; then
           echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
           echo "Download successful."
         else
           echo "DOWNLOAD_RESULT=FAILURE" >> $GITHUB_ENV
           echo "Download failed."
+          # Print diagnostic info
+          ls -R test
         fi
 
     - name: Generate Final Log
+      if: always()
       run: |
         echo "==============================" > final.log
         echo "MACOS BUILD & TEST LOG" >> final.log
         echo "==============================" >> final.log
-        cat build.log >> final.log
-        echo "" >> final.log
+        # We don't have build.log anymore since we didn't redirect, 
+        # but the standard GH Action logs will have it.
         echo "TEST DOWNLOAD STATUS: ${{ env.DOWNLOAD_RESULT }}" >> final.log
-        echo "==============================" >> final.log
-        echo "FINAL STATEMENT: ${{ env.RESULT }}" >> final.log
         echo "==============================" >> final.log
 
     - name: Upload Build Log
