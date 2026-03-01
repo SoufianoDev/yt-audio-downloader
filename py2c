@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Simple build tool for the project
+
+set -e
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_NAME="yt-audio"
+BUILD_DIR="$ROOT/build"
+DIST_DIR="$ROOT/releases"
+
+log() { echo -e "\033[0;32m[*]\033[0m $1"; }
+err() { echo -e "\033[0;31m[!]\033[0m Error: $1" >&2; exit 1; }
+
+# Find the available Python 3 interpreter
+find_python() {
+    for cmd in python3 python py; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            # Verify it's Python 3
+            if "$cmd" -c "import sys; sys.exit(0 if sys.version_info.major == 3 else 1)" >/dev/null 2>&1; then
+                echo "$cmd"
+                return 0
+            fi
+        fi
+    done
+    err "Python 3 not found. Please install Python 3."
+}
+
+PYTHON=$(find_python)
+
+find_main() {
+    [ -f "$ROOT/src/main.py" ] && echo "$ROOT/src/main.py" && return
+    [ -f "$ROOT/main.py" ] && echo "$ROOT/main.py" && return
+    err "main.py not found."
+}
+
+build() {
+    log "Using Python: $($PYTHON --version)"
+    log "Building project..."
+    
+    local main=$(find_main)
+    
+    # Try to use venv Cython if it exists
+    local cython="$ROOT/venv/bin/cython"
+    [ ! -x "$cython" ] && cython=$(command -v cython || true)
+    
+    # If no Cython yet, suggest installing it in a venv
+    if [ -z "$cython" ]; then
+        log "Cython not found. Creating virtual environment..."
+        $PYTHON -m venv venv
+        ./venv/bin/pip install --upgrade pip
+        ./venv/bin/pip install cython yt-dlp av
+        cython="$ROOT/venv/bin/cython"
+    fi
+    
+    mkdir -p "$BUILD_DIR" "$DIST_DIR"
+    
+    log "Transpiling -> C"
+    "$cython" "$main" --embed -o "$BUILD_DIR/main.c"
+    
+    log "Compiling binary"
+    local py_ver=$($PYTHON -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    
+    # Use the discovered Python's config if available
+    local py_cfg="python${py_ver}-config"
+    command -v "$py_cfg" >/dev/null 2>&1 || py_cfg="python3-config"
+    
+    if command -v "$py_cfg" >/dev/null 2>&1; then
+        local cflags=$($py_cfg --cflags)
+        local ldflags=$($py_cfg --ldflags)
+        gcc "$BUILD_DIR/main.c" $cflags $ldflags -lpython$py_ver -o "$BUILD_DIR/$BIN_NAME"
+    else
+        # Fallback to manual flags if config tool is missing
+        log "Warning: $py_cfg not found, attempting manual compilation..."
+        gcc "$BUILD_DIR/main.c" $(pkg-config --cflags --libs python3 || echo "") -o "$BUILD_DIR/$BIN_NAME"
+    fi
+    
+    cp "$BUILD_DIR/$BIN_NAME" "$DIST_DIR/"
+    
+    log "Done! Binary at: $DIST_DIR/$BIN_NAME"
+}
+
+clean() {
+    if [ -d "$BUILD_DIR" ]; then
+        rm -rf "$BUILD_DIR"
+        log "Cleaned build folder."
+    else
+        log "Already clean."
+    fi
+}
+
+case "$1" in
+    build) build ;;
+    clean) clean ;;
+    *)     build ;;
+esac

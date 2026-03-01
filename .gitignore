@@ -1,0 +1,27 @@
+# Python Environment & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+*.bak
+*.tmp
+
+
+
+# IDE & OS Specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project Releases
+releases/
+
+# Testing & Artifacts
+test/
+!test/.gitkeep
+test/w64devkit/
+
