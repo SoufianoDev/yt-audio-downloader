@@ -20,9 +20,6 @@ Thumbs.db
 # Project Releases
 releases/
 
-# Testing & Artifacts
-test/
-!test/.gitkeep
 test/w64devkit/
 
 init_project
