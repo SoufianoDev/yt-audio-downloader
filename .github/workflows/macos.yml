@@ -55,17 +55,18 @@ jobs:
       run: |
         mkdir -p test
         echo "Starting download test..."
-        # Using a reliable short video and disabling certificate checks for GH runners
-        # Also redirecting output to a file to ensure it's captured in the artifact if it crashes
-        ./releases/yt-audio "https://www.youtube.com/watch?v=90QzZtIM0mc" -o test/mac_test.wav --verbose > download.log 2>&1 || true
         
+        # Tell the compiled binary where Python's site-packages are on this runner
+        export PYTHONPATH=$(python -c "import site; print(site.getsitepackages()[0])")
+        echo "PYTHONPATH=$PYTHONPATH"
+        
+        ./releases/yt-audio "https://www.youtube.com/shorts/90QzZtIM0mc" -o test/mac_test.wav > download.log 2>&1 || true
         cat download.log
         
         if [ -f "test/mac_test.wav" ]; then
           echo "DOWNLOAD_RESULT=SUCCESS" >> $GITHUB_ENV
         else
           echo "DOWNLOAD_RESULT=FAILURE" >> $GITHUB_ENV
-          echo "Download trace found in log above."
           ls -R test
         fi
 
